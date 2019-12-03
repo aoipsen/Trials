@@ -5,6 +5,7 @@ library(shiny)
 library(shinydashboard)
 library(highcharter)
 library(stringr)
+library(shinyjs)
 
 
 geodata <- read.csv("geocoded.csv")
@@ -137,14 +138,28 @@ ui <- dashboardPage(
     )
   ), 
     tabItem(tabName = "geomap",
-            fluidRow(leafletOutput("geomap")))
-  ))
+            fluidRow(
+              column(width=9,
+                leafletOutput("geomap")
+                    ),
+              column(width=3,
+                box(status="warning",width=12, solidHeader = TRUE,
+                    checkboxGroupInput("phases", "Filter for Phase",
+                                       unique(geodata$Phases)),
+                    selectizeInput("countries", "Search for countries",multiple=TRUE,sort(unique(geodata$country)))
+                    
+                )
+                     )
+            )
+  )))
 )
 
 server <- function(input, output,session) {
-  
+
+ 
+    
 output$piechart <- renderHighchart({
-  geodata %>% count(Funded.Bys) %>% arrange(n) %>% hchart(type="pie",hcaes(x=Funded.Bys, y=n), name = "Value") %>%
+  geodata %>% count(Funded.Bys) %>% arrange(n) %>% hchart(type="pie",hcaes(x=Funded.Bys, y=n), name = "Studies") %>%
     hc_tooltip(pointformat=paste("<b>{point.percentage:.1f}%</b>")) %>% hc_title(text="Study funding sources")
 })  
   
@@ -187,6 +202,17 @@ output$enrollbyPhases <- renderHighchart({
     hc_add_series(Name="Enrollment",ShowInLegend=FALSE)
 })
  output$geomap <- renderLeaflet({
+   
+   #Show only filtered data
+   if (length(input$countries)!=0){
+   geodata <- filter(geodata, country %in% as.character(input$countries))
+     
+   }
+  
+  if (length(input$phases)!=0){
+     geodata <- filter(geodata, Phases %in% input$phases)
+     print(input$phases)
+  }
    ## geomap
    geodata %>% leaflet() %>% addTiles() %>%
      addAwesomeMarkers(
